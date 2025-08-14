@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { defaultUser } from '~/utils/default-user';
+import { setAuthToken, setAuthUser } from '~/lib/auth';
 
 export async function signIn(email: string, password: string) {
   try {
@@ -25,12 +26,16 @@ export async function signIn(email: string, password: string) {
       throw new Error(data.message || 'Login failed');
     }
 
-    const token = data.token;
+  const token = data.token as string | undefined;
+  const role = (data.user?.role || data.role || 'admin') as 'admin' | 'user' | 'customer';
+  if (token) setAuthToken(token);
 
-    // Send request
+    // Build user and persist
+    const user = { ...defaultUser, email, token, role };
+    setAuthUser(user as any);
     return {
       isOk: true,
-      data: { ...defaultUser, email, token },
+      data: user,
     };
   } catch {
     return {

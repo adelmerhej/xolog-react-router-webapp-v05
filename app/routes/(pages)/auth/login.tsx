@@ -49,7 +49,7 @@ function LoginInner() {
         push({ type: 'error', title: 'Login Failed', description: msg });
       } else {
         push({ type: 'success', title: 'Welcome', description: 'Login successful.' });
-        navigate(callbackUrl);
+        navigate(callbackUrl || '/dashboard');
       }
 
       //await new Promise((r) => setTimeout(r, 400));

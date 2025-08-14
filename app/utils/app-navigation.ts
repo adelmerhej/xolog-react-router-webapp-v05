@@ -22,7 +22,7 @@ export const navigation = [
       },
       {
         text: 'Ongoing Jobs',
-        path: '/ongoing-jobs',
+  path: '/reports/ongoing-jobs',
       },
     ],
   },
@@ -80,3 +80,15 @@ export const navigation = [
     ]
   },
 ];
+
+export type UserRole = 'admin' | 'user' | 'customer';
+
+export function getNavigationForRole(role: UserRole) {
+  if (role === 'admin') return navigation;
+  if (role === 'user') {
+    // Users see KPI Analytics + Settings
+    return navigation.filter((g) => ['KPI Analytics', 'Settings'].includes(g.text));
+  }
+  // Customers see only Client Reports + Settings
+  return navigation.filter((g) => ['Client Reports', 'Settings'].includes(g.text));
+}
