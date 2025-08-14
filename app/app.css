@@ -13,3 +13,18 @@ body {
     color-scheme: dark;
   }
 }
+
+/* Custom animations and utilities */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float { animation: none; }
+}

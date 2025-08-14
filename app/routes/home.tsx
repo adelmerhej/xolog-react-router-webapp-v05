@@ -1,13 +1,16 @@
 import type { Route } from "./+types/home";
-import { Welcome } from "../welcome/welcome";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
+    { title: "XOLOG live app" },
+    { name: "description", content: "XOLOG sal was founded to make a mark in Lebanese Freight Forwarding and Shipping industry." },
   ];
 }
 
+export async function loader({}: Route.LoaderArgs) {
+  return new Response(null, { status: 302, headers: { Location: "/login" } });
+}
+
 export default function Home() {
-  return <Welcome />;
+  return null;
 }

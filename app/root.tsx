@@ -9,6 +9,11 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { ToastProvider } from "~/components/toast/ToastContext";
+import { Toaster } from "~/components/toast/Toaster";
+import 'devexpress-gantt/dist/dx-gantt.css';
+import 'devextreme/dist/css/dx.light.css'; 
+import 'devextreme/dist/css/dx.material.blue.light.css';
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -42,7 +47,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <ToastProvider>
+      <Outlet />
+      <Toaster />
+    </ToastProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
