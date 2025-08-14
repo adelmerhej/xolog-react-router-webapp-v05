@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import mongoose, { Connection } from 'mongoose';
-import process from 'process';
+import mongoose from 'mongoose';
+import type { Connection } from 'mongoose';
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
 

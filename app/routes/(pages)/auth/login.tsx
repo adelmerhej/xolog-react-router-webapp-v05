@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import 'devextreme/dist/css/dx.light.css';
 import { Button } from 'devextreme-react/button';
 import { useToast } from '~/components/toast/ToastContext';
 import { TextBox } from 'devextreme-react/text-box';
+import worldMap from '~/assets/worldmap.png';
+import { signIn } from '~/api/auth/auth';
 
 function LoginInner() {
   const navigate = useNavigate();
@@ -29,13 +31,31 @@ function LoginInner() {
   async function handleSubmit(e?: { preventDefault?: () => void }) {
     e?.preventDefault?.();
     if (!formValid) return;
+
     try {
       setLoading(true);
       setError(null);
-      // TODO: Replace with real API call
-      await new Promise((r) => setTimeout(r, 400));
-      push({ type: 'success', title: 'Welcome', description: 'Login successful.' });
-      navigate(callbackUrl);
+      
+      const res = await signIn(identifier.trim(), password);
+
+      if (!res) {
+        setError('Unexpected error: no response');
+        push({ type: 'error', title: 'Login Failed', description: 'Unexpected: no response from server.' });
+      } else if (!res.isOk) {
+        let msg = 'Invalid credentials';
+        if (res.message && res.message.toLowerCase().includes('no user')) msg = 'User not found';
+        else if (res.message && res.message.toLowerCase().includes('password')) msg = 'Incorrect password';
+        setError(msg);
+        push({ type: 'error', title: 'Login Failed', description: msg });
+      } else {
+        push({ type: 'success', title: 'Welcome', description: 'Login successful.' });
+        navigate(callbackUrl);
+      }
+
+      //await new Promise((r) => setTimeout(r, 400));
+      //push({ type: 'success', title: 'Welcome', description: 'Login successful.' });
+      //navigate(callbackUrl);
+
     } catch {
       setError('Login failed');
       push({ type: 'error', title: 'Login Failed', description: 'Network or server issue.' });
@@ -47,7 +67,10 @@ function LoginInner() {
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-white via-sky-50 to-sky-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-slate-800 dark:text-slate-100">
       <div className="hidden lg:flex w-1/2 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/worldmap.png')] bg-cover bg-center opacity-10 dark:opacity-20" />
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-10 dark:opacity-20"
+          style={{ backgroundImage: `url(${worldMap})` }}
+        />
         <div className="m-auto max-w-md text-center space-y-6 p-10">
           <h1 className="text-4xl font-bold text-sky-600 dark:text-sky-400">Welcome Back</h1>
           <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
@@ -108,7 +131,7 @@ function LoginInner() {
           )}
           <p className="text-xs text-center text-slate-500 dark:text-slate-400">
             No account?{' '}
-            <Link to="/auth/register" className="text-sky-600 dark:text-sky-400 font-medium hover:underline">
+            <Link to="/register" className="text-sky-600 dark:text-sky-400 font-medium hover:underline">
               Register
             </Link>
           </p>

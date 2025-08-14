@@ -1,4 +1,4 @@
-import React from 'react';
+import { } from 'react';
 import { useToast } from './ToastContext';
 
 export function Toaster() {

@@ -1,7 +1,7 @@
 import type { TreeViewTypes } from 'devextreme-react/tree-view';
 import type { ButtonTypes } from 'devextreme-react/button';
 import type { ListRef } from 'devextreme-react/list';
-import React from 'react';
+import type React from 'react';
 
 export interface AppHeaderProps {
   menuToggleEnabled: boolean;

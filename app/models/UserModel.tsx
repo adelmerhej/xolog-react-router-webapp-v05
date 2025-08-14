@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import mongoose, { Document, Schema, Model } from "mongoose";
+import mongoose from "mongoose";
+import type { Document, Model } from "mongoose";
+import { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 
 export type UserRole = "admin" | "user" | "customer";
@@ -116,6 +118,16 @@ UserSchema.methods.comparePassword = async function (
 ): Promise<boolean> {
   return await bcrypt.compare(candidatePassword, this.password);
 };
+
+UserSchema.path('email').validate(async function (email: string) {
+  const count = await mongoose.models.User.countDocuments({ email });
+  return !count;
+}, 'Email already exists');
+
+UserSchema.path('username').validate(async function (username: string) {
+  const count = await mongoose.models.User.countDocuments({ username });
+  return !count;
+}, 'Username already exists');
 
 // 🔒 Export the model
 // Prevent model overwrite during hot reloads
