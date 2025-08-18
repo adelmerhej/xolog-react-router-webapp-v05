@@ -6,7 +6,7 @@ export default function ProtectedLayout() {
   return (
     <RequireAuth>
       <div className="min-h-screen flex bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-        <Sidebar />
+        {/* <Sidebar /> */}
         <div className="flex-1">
           <Outlet />
         </div>

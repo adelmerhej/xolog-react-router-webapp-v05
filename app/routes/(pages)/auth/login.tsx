@@ -129,12 +129,12 @@ function LoginInner() {
           {!formValid && (
             <div className="text-[11px] text-slate-500 dark:text-slate-400 text-center">Fill required fields correctly to enable sign in.</div>
           )}
-          <p className="text-xs text-center text-slate-500 dark:text-slate-400">
+          {/* <p className="text-xs text-center text-slate-500 dark:text-slate-400">
             No account?{' '}
             <Link to="/register" className="text-sky-600 dark:text-sky-400 font-medium hover:underline">
               Register
             </Link>
-          </p>
+          </p> */}
         </form>
       </div>
     </div>
