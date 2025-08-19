@@ -1,8 +1,20 @@
 export const navigation = [
   {
+    text: 'Dashboard',
+    icon: 'dashboard',
+    path: '',
+    role: 'all',
+    items: [
+      {
+        text: 'Dashboard',
+        path: '/dashboard',
+      }
+    ],
+  },  {
     text: 'Admin Reports',
     icon: 'refresh',
     path: '',
+    role: 'admin',
     items: [
       {
         text: 'Total Profit',
@@ -30,22 +42,23 @@ export const navigation = [
     text: 'Client Reports',
     icon: 'user',
     path: '',
+    role: 'customer',
     items: [
       {
         text: 'To be loaded',
-        path: '/client/reports/to-be-loaded',
+        path: '/reports/to-be-loaded',
       },
       {
         text: 'On Water',
-        path: '/client/reports/on-water',
+        path: '/reports/on-water',
       },
       {
-        text: 'Under Clearance',
-        path: '/client/reports/under-clearance',
+        text: 'Under Clearance',  
+        path: '/reports/under-clearance',
       },
       {
         text: 'Invoice Status',
-        path: '/client/reports/invoice-status',
+        path: '/reports/invoice-status',
       },
     ],
   },
@@ -53,18 +66,15 @@ export const navigation = [
     text: 'KPI Analytics',
     icon: 'chart',
     path: '',
+    role: 'all',
     items: [
       {
-        text: 'Dashboard',
-        path: '/analytics-dashboard',
-      },
-      {
         text: 'Sales Report',
-        path: '/analytics-sales-report',
+        path: '/dashboard',
       },
       {
         text: 'Geography',
-        path: '/analytics-geography',
+        path: '/dashboard',
       },
     ],
   },
@@ -72,6 +82,7 @@ export const navigation = [
     text: 'Settings',
     icon: 'box',
     path: '',
+    role: 'all',
     items: [
       {
         text: 'User Profile',
@@ -89,6 +100,8 @@ export function getNavigationForRole(role: UserRole) {
     // Users see KPI Analytics + Settings
     return navigation.filter((g) => ['KPI Analytics', 'Settings'].includes(g.text));
   }
-  // Customers see only Client Reports + Settings
-  return navigation.filter((g) => ['Client Reports', 'Settings'].includes(g.text));
+  if (role === 'customer') {
+    // Customers see only Client Reports + Settings
+    return navigation.filter((g) => ['Dashboard', 'Client Reports', 'Settings'].includes(g.text));
+  }
 }

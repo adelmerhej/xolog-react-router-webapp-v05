@@ -3,7 +3,15 @@ const USER_KEY = "authUser";
 
 export function setAuthToken(token: string) {
   try {
-    if (typeof window !== "undefined") localStorage.setItem(TOKEN_KEY, token);
+    if (typeof window !== "undefined") {
+      // Persist in localStorage for client-side fetches
+      localStorage.setItem(TOKEN_KEY, token);
+
+      // Also set a cookie so server-side loaders can read it
+      // Note: Can't set HttpOnly from the client. SameSite=Lax to allow same-site navigations.
+      const secure = typeof location !== 'undefined' && location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; Path=/; SameSite=Lax${secure}`;
+    }
   } catch {}
 }
 
@@ -18,13 +26,17 @@ export function getAuthToken(): string | null {
 
 export function clearAuthToken() {
   try {
-    if (typeof window !== "undefined") localStorage.removeItem(TOKEN_KEY);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(TOKEN_KEY);
+      // Clear cookie
+      document.cookie = `${TOKEN_KEY}=; Path=/; Max-Age=0; SameSite=Lax`;
+    }
   } catch {}
 }
 
 export type StoredUser = {
   email: string;
-  name: string;
+  username: string;
   avatarUrl: string;
   role: 'admin' | 'user' | 'customer';
   token?: string;

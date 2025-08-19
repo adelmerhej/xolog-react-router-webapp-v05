@@ -6,7 +6,10 @@ export default [
     // route("/register", "routes/(pages)/auth/register.tsx"),
         route("/", "routes/(protected)/_layout.tsx", [
             route("/dashboard", "routes/(protected)/dashboard.tsx"),
-            route("/reports/ongoing-jobs", "routes/(protected)/ongoing-jobs.tsx"),
+            route("/reports/to-be-loaded", "routes/(protected)/clients/reports/to-be-loaded.tsx"),
+            route("/reports/on-water", "routes/(protected)/clients/reports/on-water.tsx"),
+            route("/reports/under-clearance", "routes/(protected)/clients/reports/under-clearance.tsx"),
+            route("/reports/invoice-status", "routes/(protected)/clients/reports/invoice-status.tsx"),
         ]),
     route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;

@@ -27,16 +27,19 @@ export async function signIn(email: string, password: string) {
     }
 
   const token = data.token as string | undefined;
-  const role = (data.user?.role || data.role || 'admin') as 'admin' | 'user' | 'customer';
+  // Prefer username, fallback to name, fallback to email prefix
+  const username = data.user?.username || data.user?.fullName || email.split('@')[0];
+  const role = (data.user?.role || data.role || 'user') as 'admin' | 'user' | 'customer';
+  const avatarUrl = data.user?.avatarUrl || '';
   if (token) setAuthToken(token);
 
-    // Build user and persist
-    const user = { ...defaultUser, email, token, role };
-    setAuthUser(user as any);
-    return {
-      isOk: true,
-      data: user,
-    };
+  // Build user object from API response
+  const user = { email, username, token, role, avatarUrl };
+  setAuthUser(user as any);
+  return {
+    isOk: true,
+    data: user,
+  };
   } catch {
     return {
       isOk: false,

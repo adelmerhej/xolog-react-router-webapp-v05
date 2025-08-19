@@ -1,4 +1,3 @@
-"use client";
 import { createContext, useContext, useCallback, useState, useRef, useEffect } from 'react';
 
 // Fallback UUID generator if crypto.randomUUID is unavailable (older browsers / non-secure contexts)

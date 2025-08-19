@@ -8,14 +8,17 @@ export type UserRole = "admin" | "user" | "customer";
 
 interface IUser extends Document {
   username: string;
-  password: string;
   email: string;
+  password: string;
+  fullName?: string;
   profilePicture?: string;
+  twoFactorEnabled: boolean;
+  twoFactorSecret: string;
   resetToken: string;
   tokenExpiryDate: Date;
   role: UserRole;
   loginAttempts: number;
-  lockUntil: Date;
+  lockoutExpiry: Date;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -50,6 +53,11 @@ const UserSchema: Schema<IUser> = new Schema(
         "Please provide a valid email address",
       ],
     },
+    fullName: {
+      type: String,
+      minlength: [2, "Full name must be at least 2 characters"],
+      maxlength: [100, "Full name cannot exceed 100 characters"],
+    },
     profilePicture: {
       type: String,
       default: "",
@@ -57,6 +65,14 @@ const UserSchema: Schema<IUser> = new Schema(
         validator: (v: string) => v === "" || /\.(jpe?g|png|gif|bmp)$/i.test(v),
         message: "Profile picture must be a valid image URL",
       },
+    },
+    twoFactorEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    twoFactorSecret: {
+      type: String,
+      default: "",
     },
     resetToken: {
       type: String,
@@ -77,7 +93,7 @@ const UserSchema: Schema<IUser> = new Schema(
       type: Number,
       default: 0,
     },
-    lockUntil: {
+    lockoutExpiry: {
       type: Date,
     },
   },
