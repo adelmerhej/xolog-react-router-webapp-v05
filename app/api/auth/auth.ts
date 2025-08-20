@@ -6,10 +6,10 @@ import { setAuthToken, setAuthUser } from '~/lib/auth';
 export async function signIn(email: string, password: string) {
   try {
     // Prefer Vite env var; fall back to relative path if not set
-    const rawBase = (import.meta as any).env?.VITE_API_URL as string | undefined;
-
-    const baseUrl = rawBase ? rawBase.replace(/\/$/, '') : '';
-    const url = baseUrl ? `${baseUrl}/api/v1/auth/login` : `/api/v1/auth/login`;
+  const rawBase = (import.meta as any).env?.VITE_API_URL as string | undefined;
+  const envBase = (process as any)?.env?.VITE_API_URL as string | undefined;
+  const baseUrl = (rawBase || envBase || 'http://myaccount.xolog.com:5055').replace(/\/$/, '');
+  const url = `${baseUrl}/api/v1/auth/login`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {
