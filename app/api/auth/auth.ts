@@ -3,43 +3,62 @@
 import { defaultUser } from '~/utils/default-user';
 import { setAuthToken, setAuthUser } from '~/lib/auth';
 
-export async function signIn(email: string, password: string) {
+export async function signIn(identifier: string, password: string) {
   try {
     // Prefer Vite env var; fall back to relative path if not set
   const rawBase = (import.meta as any).env?.VITE_API_URL as string | undefined;
-  const envBase = (process as any)?.env?.VITE_API_URL as string | undefined;
-  const baseUrl = (rawBase || envBase || 'http://myaccount.xolog.com:5055').replace(/\/$/, '');
-  const url = `${baseUrl}/api/v1/auth/login`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        password
-      }),
-    });
+  const baseUrl = (rawBase || 'http://localhost:5055').replace(/\/$/, '');
+  
+  // Use app resource route so SSR server can proxy to backend and avoid CORS
+  const url = `/api/v1/auth/login`;
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed');
+    // Try multiple payload shapes to match backend expectations
+    const payloads: Array<Record<string, unknown>> = [
+      { identifier, password },
+      identifier.includes('@') ? { email: identifier, password } : { username: identifier, password },
+    ];
+
+    let lastError: any = null;
+    for (const body of payloads) {
+      try {
+  const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // Include credentials in case the backend sets an HttpOnly session cookie
+          credentials: 'include',
+          body: JSON.stringify(body),
+        });
+
+        const data = await response
+          .json()
+          .catch(() => ({} as any));
+
+        if (!response.ok) {
+          lastError = new Error(data?.message || response.statusText || 'Login failed');
+          continue;
+        }
+
+        // Extract token in a tolerant way
+        const token = (data?.token || data?.accessToken || data?.jwt || data?.data?.token) as string | undefined;
+        const userObj = data?.user || data?.data?.user || {};
+        const username = userObj?.username || userObj?.fullName || (identifier.includes('@') ? identifier.split('@')[0] : identifier);
+        const role = (userObj?.role || data?.role || 'user') as 'admin' | 'user' | 'customer';
+        const avatarUrl = userObj?.avatarUrl || '';
+        if (token) setAuthToken(token);
+
+        const user = { email: identifier, username, token, role, avatarUrl };
+        setAuthUser(user as any);
+        return { isOk: true, data: user } as const;
+      } catch (err) {
+        lastError = err;
+      }
     }
 
-  const token = data.token as string | undefined;
-  // Prefer username, fallback to name, fallback to email prefix
-  const username = data.user?.username || data.user?.fullName || email.split('@')[0];
-  const role = (data.user?.role || data.role || 'user') as 'admin' | 'user' | 'customer';
-  const avatarUrl = data.user?.avatarUrl || '';
-  if (token) setAuthToken(token);
-
-  // Build user object from API response
-  const user = { email, username, token, role, avatarUrl };
-  setAuthUser(user as any);
-  return {
-    isOk: true,
-    data: user,
-  };
+    // If all attempts failed
+    return {
+      isOk: false,
+      message: (lastError as any)?.message || 'Authentication failed',
+    } as const;
   } catch {
     return {
       isOk: false,

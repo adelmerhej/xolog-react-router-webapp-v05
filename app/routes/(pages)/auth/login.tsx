@@ -37,6 +37,8 @@ function LoginInner() {
       setError(null);
       
       const res = await signIn(identifier.trim(), password);
+      
+      console.log('Login response:', res);
 
       if (!res) {
         setError('Unexpected error: no response');
@@ -52,9 +54,9 @@ function LoginInner() {
         navigate(callbackUrl || '/dashboard');
       }
 
-      //await new Promise((r) => setTimeout(r, 400));
-      //push({ type: 'success', title: 'Welcome', description: 'Login successful.' });
-      //navigate(callbackUrl);
+      // await new Promise((r) => setTimeout(r, 400));
+      // push({ type: 'success', title: 'Welcome', description: 'Login successful.' });
+      // navigate(callbackUrl);
 
     } catch {
       setError('Login failed');
