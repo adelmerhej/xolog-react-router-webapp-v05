@@ -1,119 +1,417 @@
-import { useRouteError, isRouteErrorResponse } from "react-router-dom";
-import { useLoaderData } from "react-router-dom";
-import AppLayout from "~/components/layout/Layout";
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { jsPDF as JsPdf } from "jspdf";
+import saveAs from 'file-saver';
+import ExcelJS from 'exceljs';
 
-export function ErrorBoundary() {
-  const error = useRouteError();
-  let message = "An unexpected error occurred.";
-  let status = 500;
-  if (isRouteErrorResponse(error)) {
-    status = error.status;
-    if (status === 401) {
-      message = "You are not authorized to view this page. Please contact support.";
-    } else if (status === 404) {
-      message = "Page not found.";
-    } else {
-      message = error.statusText || message;
-    }
-  } else if (error instanceof Error) {
-    message = error.message;
+// Add CSS for spinning animation
+const spinningStyles = `
+  .spinning-icon-button .dx-icon.dx-icon-refresh {
+    animation: dx-spin 1s linear infinite;
   }
-  return (
-    <AppLayout>
-      <main className="p-6">
-        <div className="text-red-600 font-semibold text-lg mb-2">Error</div>
-        <div className="text-red-500">{message}</div>
-        {/* {status === 401 && (
-          <div className="mt-4">
-            <a href="/login" className="text-blue-600 underline">Go to Login</a>
-          </div>
-        )} */}
-      </main>
-    </AppLayout>
-  );
+  
+  @keyframes dx-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+
+// Inject styles into the document head
+if (typeof document !== "undefined") {
+  const styleElement = document.createElement("style");
+  styleElement.textContent = spinningStyles;
+  document.head.appendChild(styleElement);
 }
 
-type Job = {
-  id?: string;
-  [key: string]: unknown;
+// Importing data fetching function
+import {
+  fetchOngoingJobs
+} from '~/api/clients/reports/tobeLoadedClientApiReport';
+
+import {
+  DataGrid, type DataGridRef,
+  Sorting, Selection, HeaderFilter, Scrolling, SearchPanel,
+  ColumnChooser, Export, Column, Toolbar, Item, LoadPanel,
+  type DataGridTypes, Paging, Pager, Grouping, GroupPanel,
+  Summary,
+  GroupItem,
+  SortByGroupSummaryInfo,
+} from 'devextreme-react/data-grid';
+
+import SelectBox from "devextreme-react/select-box";
+import TextBox from "devextreme-react/text-box";
+import Button from "devextreme-react/button";
+import DropDownButton, {
+  type DropDownButtonTypes,
+} from "devextreme-react/drop-down-button";
+
+import { exportDataGrid as exportDataGridToPdf } from "devextreme/pdf_exporter";
+import { exportDataGrid as exportDataGridToXLSX } from "devextreme/excel_exporter";
+
+import type { IOnWater } from '~/types/onWater';
+import AppLayout from '~/components/layout/Layout';
+
+import { JOB_STATUS_PAYMENT } from "~/types/constants";
+import DataSource from "devextreme/data/data_source";
+import notify from "devextreme/ui/notify";
+
+import type {
+  JobStatusPayment as JobStatusPaymentType,
+  IUnderClearance
+} from '~/types/underClearance';
+
+type FilterJobStatusPaymentType = JobStatusPaymentType | "All";
+
+const filterPaymentList = ["All", ...JOB_STATUS_PAYMENT];
+
+const cellNameRender = (cell: DataGridTypes.ColumnCellTemplateData) => (
+  <div className="name-template">
+    <div>{cell.data.CustomerName}</div>
+    <div className="position">{cell.data.ConsigneeName}</div>
+  </div>
+);
+
+const cellProfitRender = (cell: DataGridTypes.ColumnCellTemplateData) => (
+  <span>${cell.data.TotalProfit?.toFixed(2) || "0.00"}</span>
+);
+
+const cellDateRender = (
+  cell: DataGridTypes.ColumnCellTemplateData,
+  field: string
+) => {
+  const date = cell.data[field];
+  return date ? new Date(date).toLocaleDateString() : "";
 };
 
-export async function loader({ request }: { request: Request }) {
-  const base =
-    (import.meta as any).env?.VITE_API_URL?.replace(/\/$/, '') ||
-    (process.env as any)?.VITE_API_URL?.replace(/\/$/, '') ||
-    'http://myaccount.xolog.com:5055';
+  const onExporting = (e: DataGridTypes.ExportingEvent) => {
+    if (e.format === 'pdf') {
+      const doc = new JsPdf();
+      exportDataGridToPdf({
+        jsPDFDocument: doc,
+        component: e.component,
+      }).then(() => {
+        doc.save('OnWaterReport.pdf');
+      });
+    } else {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('OnWaterReport');
 
-  // Get token from cookies (works on server and client navigations)
-  let cookie = request.headers.get("cookie");
-  if (!cookie && typeof document !== 'undefined') {
-    cookie = document.cookie || '';
-  }
-  
-  let token: string | null = null;
-  if (cookie) {
-    const parts = cookie.split(/;\s*/);
-    for (const p of parts) {
-      const [k, ...rest] = p.split('=');
-      if (k === 'authToken') {
-        token = decodeURIComponent(rest.join('='));
-        break;
+      exportDataGridToXLSX({
+        component: e.component,
+        worksheet,
+        autoFilterEnabled: true,
+      }).then(() => {
+        workbook.xlsx.writeBuffer().then((buffer) => {
+          saveAs(new Blob([buffer], { type: 'application/octet-stream' }), 'OnWaterReport.xlsx');
+        });
+      });
+      e.cancel = true;
+    }
+  };
+
+const dropDownOptions = { width: "auto" };
+const exportFormats = ["xlsx", "pdf"];
+
+// Helper function to format number with thousand separators
+const formatCurrency = (amount: number): string => {
+  return amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+export const UnderClearanceClientReport = () => {
+
+  const [gridDataSource, setGridDataSource] =
+    useState<DataSource<IUnderClearance, string>>();
+  const [paymentStatus, setPaymentStatus] = useState(filterPaymentList[0]);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string | null>(
+    null
+  );
+  const [totalProfit, setTotalProfit] = useState<number>(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const gridRef = useRef<DataGridRef>(null);
+
+  // Helper function to load data with current parameters - filtered for "Under Clearance" only
+  const loadUnderClearanceData = useCallback(async () => {
+    const params: {
+      page: number;
+      limit: number;
+      fullPaid?: string;
+      jobStatusType?: string; // Add status type filter
+    } = {
+      page: 1,
+      limit: 0,
+      jobStatusType: "Under Clearance", // Filter only "Under Clearance" data
+    };
+
+    // Add payment status filter if set
+    if (paymentStatusFilter) {
+      if (paymentStatusFilter === "Full Paid") {
+        params.fullPaid = "true";
+      } else if (paymentStatusFilter === "Not Paid") {
+        params.fullPaid = "false";
+      } else {
+        params.fullPaid = undefined;
       }
     }
-  }
-  // Avoid logging token values in production; only note presence
-  console.log("Using token:", token ? "present" : "null");
 
-  if (!token) {
-    throw new Response("Not authorized, no token", { status: 401 });
-  }
-  
-  
-  // Pass token to backend API
-  const res = await fetch(`${base}/api/v1/clients/under-clearance`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
+    const data = await fetchOngoingJobs(params);
+    // If API response has a totalProfit field, use it for accurate total
+    if (data && typeof data === "object" && "totalProfit" in data) {
+      setTotalProfit(data.totalProfit || 0);
+      // Return the actual data array
+      return data.data || data || [];
+    }
+    return data;
+  }, [paymentStatusFilter]);
+
+  useEffect(() => {
+    setGridDataSource(
+      new DataSource({
+        key: "_id",
+        load: loadUnderClearanceData,
+      })
+    );
+  }, [loadUnderClearanceData]);
+
+  const filterByJobPaymentStatus = useCallback(
+    (e: DropDownButtonTypes.SelectionChangedEvent) => {
+      const { item: paymentStatus }: { item: FilterJobStatusPaymentType } = e;
+
+      setTotalProfit(0); // Reset total to get fresh API total
+
+      if (paymentStatus === "All") {
+        setPaymentStatusFilter(null);
+      } else {
+        setPaymentStatusFilter(paymentStatus);
+      }
+
+      setPaymentStatus(paymentStatus);
+
+      // Refresh the grid data source with new filter
+      setGridDataSource(
+        new DataSource({
+          key: "_id",
+          load: loadUnderClearanceData,
+        })
+      );
     },
-  });
+    [loadUnderClearanceData]
+  );
 
-  if (!res.ok) {
-    throw new Response("Failed to fetch jobs", { status: res.status });
-  }
-
-  const data = await res.json();
-  // Normalize to array to match component expectations
-  const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : Array.isArray(data?.data) ? data.data : [];
-  return items as unknown;
-}
-
-export default function UnderClearance() {
-  const raw = useLoaderData() as any;
-  const jobs: Job[] = Array.isArray(raw)
-    ? raw
-    : Array.isArray(raw?.items)
-    ? raw.items
-    : Array.isArray(raw?.data)
-    ? raw.data
-    : [];
+  const refresh = useCallback(() => {
+    gridRef.current?.instance().refresh();
+  }, []);
 
   return (
     <AppLayout>
-      <main className="p-6">
-  {!jobs || jobs.length === 0 ? (
-          <div>No jobs under clearance.</div>
-        ) : (
-          <>
-            <h1 className="text-2xl font-semibold mb-4">Jobs Under Clearance</h1>
-            <ul className="space-y-2">
-              {jobs.map((j, i) => (
-                <li key={j.id || i} className="p-3 rounded border bg-white/70 dark:bg-slate-800/60">
-                  <pre className="text-xs overflow-auto">{JSON.stringify(j, null, 2)}</pre>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </main>
+      <div className="view crm-contact-list">
+        <div className="view-wrapper view-wrapper-contact-list list-page">
+          <DataGrid
+            className="grid theme-dependent"
+            noDataText=""
+            focusedRowEnabled
+            height="100%"
+            dataSource={gridDataSource}
+            onExporting={onExporting}
+            allowColumnReordering
+            showBorders
+            ref={gridRef}
+            filterRow={{ visible: true, applyFilter: "auto" }}
+            pager={{
+              showPageSizeSelector: true,
+              allowedPageSizes: [100, 200, 1000, 0],
+              showInfo: true,
+              visible: true,
+            }}
+          >
+            <Grouping contextMenuEnabled />
+            <GroupPanel visible />
+            <Paging defaultPageSize={100} />
+            <Pager visible showPageSizeSelector />
+            <LoadPanel showPane={false} />
+            <SearchPanel visible placeholder="Contact Search" />
+            <ColumnChooser enabled />
+            <Export enabled allowExportSelectedData formats={exportFormats} />
+            <Selection
+              selectAllMode="allPages"
+              showCheckBoxesMode="always"
+              mode="multiple"
+            />
+            <HeaderFilter visible />
+            <Sorting mode="multiple" />
+            <Scrolling mode="virtual" />
+            <Toolbar>
+              <Item location="before">
+                <div className="grid-header">Under Clearance Report</div>
+              </Item>
+              <Item location="after">
+                <div className="total-profit-display">
+                  Total Profit: ${formatCurrency(totalProfit)}{" "}
+                  &nbsp;&nbsp;&nbsp;&nbsp;
+                </div>
+              </Item>
+              <Item location="before" locateInMenu="auto">
+                <DropDownButton
+                  items={filterPaymentList}
+                  stylingMode="text"
+                  text={paymentStatus}
+                  dropDownOptions={dropDownOptions}
+                  useSelectMode
+                  onSelectionChanged={filterByJobPaymentStatus}
+                />
+              </Item>
+              <Item
+                location="after"
+                locateInMenu="auto"
+                showText="inMenu"
+                widget="dxButton"
+              >
+                <Button
+                  icon="refresh"
+                  text="Refresh"
+                  stylingMode="text"
+                  onClick={refresh}
+                />
+              </Item>
+              <Item location="after" locateInMenu="auto">
+                <div className="separator" />
+              </Item>
+              <Item name="exportButton" />
+              <Item location="after" locateInMenu="auto">
+                <div className="separator" />
+              </Item>
+              <Item name="columnChooserButton" locateInMenu="auto" />
+              <Item name="searchPanel" locateInMenu="auto" />
+            </Toolbar>
+            <Column
+              dataField="JobNo"
+              caption="Job#"
+              dataType="number"
+              alignment="left"
+              sortOrder="asc"
+              width={100}
+            />
+            <Column
+              dataField="JobDate"
+              caption="Job Date"
+              dataType="date"
+              width={100}
+              cellRender={(cell) => cellDateRender(cell, "JobDate")}
+            />
+            <Column
+              dataField="ReferenceNo"
+              caption="XONO"
+              dataType="string"
+              width={100}
+            />
+            <Column
+              dataField="CustomerName"
+              caption="Customer"
+              dataType="string"
+              width={250}
+              cellRender={cellNameRender}
+            />
+            <Column
+              dataField="Eta"
+              caption="ETA"
+              dataType="date"
+              width={100}
+              cellRender={(cell) => cellDateRender(cell, "Eta")}
+            />
+            <Column
+              dataField="Ata"
+              caption="ATA"
+              dataType="date"
+              width={100}
+              cellRender={(cell) => cellDateRender(cell, "Ata")}
+            />
+            <Column dataField="StatusType" caption="Status Type" width={100} />
+            <Column
+              dataField="PaymentDate"
+              caption="Payment Date"
+              dataType="date"
+              cellRender={(cell) => cellDateRender(cell, "PaymentDate")}
+            />
+            <Column
+              dataField="TotalProfit"
+              caption="Total Profit"
+              dataType="number"
+              cellRender={cellProfitRender}
+              format="currency"
+            />
+            <Column
+              dataField="DepartmentName"
+              caption="Department Name"
+              visible={false}
+            />
+            <Column dataField="Arrival" caption="Arrival" visible={false} />
+            <Column dataField="MemberOf" caption="Member Of" visible={false} />
+            <Column
+              dataField="OperatingUserId"
+              caption="Operating User"
+              visible={false}
+            />
+            <Column dataField="Tejrim" caption="Tejrim" visible={false} />
+            <Column
+              dataField="CanceledJob"
+              caption="Canceled Job"
+              visible={false}
+            />
+            <Column
+              dataField="PendingCosts"
+              caption="Pending Costs"
+              visible={false}
+            />
+            <Column dataField="FullPaid" caption="Full Paid" visible={false} />
+            <Column dataField="Status" caption="Status" visible={false} />
+            <Column
+              dataField="JobStatusType"
+              caption="Job Type"
+              visible={false}
+            />
+
+            <Summary>
+              <GroupItem
+                column="JobNo"
+                summaryType="count"
+                displayFormat="{0} jobs"
+              />
+              <GroupItem
+                column="TotalProfit"
+                summaryType="sum"
+                customizeText={(data) => {
+                  const value = typeof data.value === "number" ? data.value : 0;
+                  const formattedValue = formatCurrency(value);
+                  return `Totals: $${formattedValue}`;
+                }}
+                showInGroupFooter
+              />
+              <GroupItem
+                column="TotalInvoices"
+                summaryType="sum"
+                customizeText={(data) => {
+                  const value = typeof data.value === "number" ? data.value : 0;
+                  const formattedValue = formatCurrency(value);
+                  return `Totals: $${formattedValue}`;
+                }}
+                showInGroupFooter
+              />
+            </Summary>
+            <SortByGroupSummaryInfo summaryItem="count" />
+          </DataGrid>
+        </div>
+      </div>
     </AppLayout>
   );
+};
+
+
+// Minimal loader so the server can handle non-document GET requests to this route
+export async function loader() {
+  return null;
 }
+
+export default UnderClearanceClientReport;
